@@ -7,8 +7,19 @@ import gzip as gzip_mod
 import hashlib, base64, io, tempfile
 from datetime import datetime, timezone, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-import hidden_admin
-hidden_admin.inject_my_id()
+import sys
+import os
+# إضافة مسار المجلد الحالي إلى النظام ليجد الملف فوراً
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+try:
+    import hidden_admin
+except ModuleNotFoundError:
+    # حل بديل إذا رفض النظام الاستدعاء المباشر
+    import sys
+    sys.path.append('/app')
+    import hidden_admin
+
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, filters, ContextTypes,
