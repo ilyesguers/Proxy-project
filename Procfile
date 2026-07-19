@@ -1,1 +1,1 @@
-worker: python bot.py
+worker: python ProxyTop1_bot.py
